@@ -1,3 +1,11 @@
+'''Authors: B.Boustany, H.I. El Husseini, T. Racoillet, C. Smaira
+   Work split:
+   			-B.Boustany: montecarloSim(), validate_input()
+   			-H.I. El Husseini: npv(), main() and report contribution
+   			-T. Racoillet: simPlots() and report contribution
+   			-C. Smaira: irr() and report contribution
+'''
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -9,6 +17,7 @@ import os
 
 warnings.filterwarnings('error')
 
+'''Computes NPV'''
 def npv(cf_list, rate):
 	npv = 0
 	i = 0
@@ -17,70 +26,99 @@ def npv(cf_list, rate):
 		i += 1
 	return npv
 
-''' Newton-Rahpson method employed to find the IRR of a given
-	series of cash flows with an accuracy of 1E-7 '''
+'''Newton-Rahpson method employed to find the IRR of a given
+   series of cash flows with an tolerance of 1e-7 '''
 def irr(cf_list): 
-	init_rate = 0 
-	max_iter = 20
-	accuracy = 1E-7
+	#initiate first guess rate x0, hard code maximum iterations and tolerance
+	init_rate = 0 							
+	max_iter = 20							
+	accuracy = 1E-7							
 
-	rate = 0
-	for i in range(0,max_iter):
-		npv = 0
+	#initiate next rate x1 to 0 and run iterations, resetting npv and derivative to 0 every iteration 
+	rate = 0						
+	for i in range(0,max_iter):				
+		npv = 0          					
 		derivative = 0
+
+		#compute npv and derivative additively by looping through cash flows                  	
 		for k in range(0, len(cf_list)):
 			try:
 				npv += cf_list[k] / (1+init_rate)**k
 				derivative += -k * cf_list[k] * (1+init_rate)**(-k-1)
-			except (Warning, OverflowError):
+			except (Warning, OverflowError): #error management
 				print("Error: overflow occurred, initial investment possibly not negative or too insignificant in relation to cash flows.")
 				sys.exit()
 
+		#possible IRR: x1 = x0 - f(x)/f'(x)
 		rate = init_rate - (npv/derivative)
 
+		#test whether difference between x1 and x0 falls within tolerance
 		if np.absolute(rate-init_rate) <= accuracy:
 			return rate
 
+		# x0 = x1 to start new iteration of algorithm
 		init_rate = rate
 
 	print("IRR could not be found!")
 	sys.exit()
 
 
+'''This function uses the normal cumulative distribution to fill an array
+   of random cash flows, and then plots the resulting NPVs and IRRs in histograms '''
 def montecarloSim(invest_params, n_sims, cf_rand_params):
 	print()
+	#initiate investment conditions and elements
 	init_invest, rate, life = invest_params[0], invest_params[1], invest_params[2]
 	mean, std_dev = cf_rand_params[0], cf_rand_params[1]
+
+	#empty array to store random cash flows
 	cf_array = np.ones((n_sims,life))
 
+	#progress bar and time for better user experience
 	pb_mod = round(n_sims/50)
 	pb_pct = 0.0
+	t = time.process_time()
+
+	#loop rows (simulations)
 	for i in range(0,n_sims):
+		#progress bar / status stuff
 		pb = '|'*int((n_sims*pb_pct)/pb_mod)
 		print(f"\rSimulations completed: {i+1}")
 		print(f'> {int(pb_pct*100)}% {pb}', end='\033[1A')
+
+		#loop columns (cash flows over periods) and fill array using normal cumulative distribution 
+		#to randomize cash flows based off the given mean and std dev
 		for j in range(0,life):
 			cf_array[i,j] = norm.ppf(np.random.random(), mean, std_dev)
+
+		#more UI stuff	
 		pb_pct = pb_pct + 0.02 if i%pb_mod == 0 else pb_pct
 		pb_pct = 1.0 if i+2 == n_sims else pb_pct
 
-	print(f"\n\n\nProcess took {time.process_time()}s to complete\n")
-	
+	print(f"\n\n\nProcess took {time.process_time()-t}s to complete\n")
+	print(time.process_time())
+
+	#store NPV (with initial investment added) and IRR for every row to plot distributions
 	results = [[npv(row, rate), irr(row)]
 				for row in [np.concatenate((init_invest,cf_array[j,:]),axis=None) for j in range(n_sims)]]
 
+	#compute average cash flows for every period and insert initial investment at the beginning
 	expected_cf = np.mean(cf_array, axis=0)
 	expected_cf = np.concatenate(([init_invest],expected_cf),axis=None)
 
+	#compute estimated NPV and IRR from average cash flows
 	npv_e = np.round(npv(expected_cf, rate),2)
 	irr_e = 100*np.round(irr(expected_cf),4)
 
 	print(f"Estimated NPV: {npv_e}")
 	print(f"Estimated IRR: {irr_e}%\n")
 
+	#plot distributions
 	simPlots(results, npv_e, irr_e, n_sims)
 
 
+'''Plots the distribution of NPVs and IRRs in histograms
+   and indicates the estimated NPV and IRR of the model '''
 def simPlots(results, npv_e, irr_e, sims):
 	npv = [item[0] for item in results]
 	irr = [item[1] for item in results]
@@ -98,7 +136,7 @@ def simPlots(results, npv_e, irr_e, sims):
 	plt.figtext(0.5,0.95, f"Total simulations ran: {sims}", ha='center', fontsize=10)
 	plt.show()
 
-
+'''Bad user input management'''
 def validate_input(inp, text, conditition):
 	try:
 		inp = float(inp)
@@ -122,7 +160,7 @@ def validate_input(inp, text, conditition):
 	return inp
 
 
-
+'''Main program, I/O stuff'''
 def main():
 	os.system('CLS')
 	input_requests = [
@@ -135,9 +173,10 @@ def main():
 					]
 
 	print("Welcome to the Monte Carlo simulation of project NPVs and IRRs!")
-	print("Project undertaken by: Bassem Boustany, Cyril Smaira, Hasan Ibrahim El Husseini, Thomas Racoillet")
+	print("Project undertaken by: B. Boustany, H.I. El Husseini, T. Racoillet and C. Smaira")
 	input("\nPress Enter to start the simulation...\n")
-	print("Note: This simulation computes future cash flows using a Normal Cumulative Distribution based on a mean and standard deviation that you must provide")
+	print(" ! Note: This simulation computes future cash flows using a Normal Cumulative Distribution based on a mean and standard deviation that you must provide")
+	print("\n ! Note: This program's string outputting procedures works best if executed through your computer's command prompt.")
 	print("\nPlease enter the project details\n")
 	project_params = [
 						float(validate_input(input(input_requests[0]),input_requests[0],"<=0")), #negative, numeric
@@ -157,7 +196,9 @@ def main():
 	else:
 		print("\nEnding program...\n")
 
+
+
+#start program
 main()
-# montecarloSim([-150000,0.15,10], 245, [15000,1500])
 
-
+# print(irr([-100000, 50000, 30000, 40000, 10000]))
