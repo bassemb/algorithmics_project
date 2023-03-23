@@ -1,10 +1,4 @@
-'''Authors: B.Boustany, H.I. El Husseini, T. Racoillet, C. Smaira
-   Work split:
-   			-B.Boustany: montecarloSim(), validate_input()
-   			-H.I. El Husseini: npv(), main() and report contribution
-   			-T. Racoillet: simPlots() and report contribution
-   			-C. Smaira: irr() and report contribution
-'''
+''' Author: Bassem Boustany '''
 
 import numpy as np
 import pandas as pd
@@ -96,7 +90,6 @@ def montecarloSim(invest_params, n_sims, cf_rand_params):
 		pb_pct = 1.0 if i+2 == n_sims else pb_pct
 
 	print(f"\n\n\nProcess took {time.process_time()-t}s to complete\n")
-	print(time.process_time())
 
 	#store NPV (with initial investment added) and IRR for every row to plot distributions
 	results = [[npv(row, rate), irr(row)]
